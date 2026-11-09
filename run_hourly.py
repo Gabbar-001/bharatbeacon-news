@@ -23,6 +23,8 @@ class TeeLogger:
     def __init__(self, log_path: Path, orig_stream):
         self.orig_stream = orig_stream
         self.log_file = open(log_path, "a", encoding="utf-8", errors="replace")
+        self.encoding = getattr(orig_stream, "encoding", "utf-8")
+        self.errors = getattr(orig_stream, "errors", "replace")
 
     def write(self, message):
         try:
@@ -44,6 +46,15 @@ class TeeLogger:
             self.log_file.flush()
         except Exception:
             pass
+
+    def isatty(self):
+        return getattr(self.orig_stream, "isatty", lambda: False)()
+
+    def fileno(self):
+        try:
+            return self.orig_stream.fileno()
+        except Exception:
+            return self.log_file.fileno()
 
 def execute_hourly_cycle(deduplicate: bool = True):
     start_time = datetime.now()
