@@ -30,6 +30,19 @@ def init_learning_tables():
     conn = get_connection()
     cur = conn.cursor()
 
+    # 0. Seen Stories: Core deduplication table for tracking broadcast stories
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS seen_stories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title_hash TEXT UNIQUE,
+            title TEXT,
+            category TEXT,
+            link TEXT,
+            image_url TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     # 1. Topic Pool: Records all discovered topics, 6D scores, status & reasoning
     cur.execute("""
         CREATE TABLE IF NOT EXISTS topic_pool (

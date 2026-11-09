@@ -77,6 +77,9 @@ def discover_candidate_topics(max_candidates: int = 40) -> List[Dict[str, Any]]:
     Ingests trending facts, science, mysteries, and national stories across 7 sources.
     Deduplicates against previous productions and returns scored candidate topics.
     """
+    from src.learning_memory import init_learning_tables
+    init_learning_tables()
+
     conn = get_connection()
     cur = conn.cursor()
 

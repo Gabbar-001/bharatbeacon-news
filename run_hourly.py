@@ -73,6 +73,12 @@ def execute_hourly_cycle(deduplicate: bool = True):
     print(f"  Log File: {log_file}")
     print("=" * 65)
 
+    # 0. Initialize Database Tables
+    from src.news_fetcher import init_db
+    from src.learning_memory import init_learning_tables
+    init_db()
+    init_learning_tables()
+
     # 1. Fetch Top Stories (AI Intelligence Engine or Standard News)
     if getattr(config, "USE_AI_INTELLIGENCE_ENGINE", False):
         print(f"\n[1/4] Running AI Pre-Generation Engine (Discovery, 6D Viral Gate & Hook Engineering)...")
