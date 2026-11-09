@@ -1,0 +1,36 @@
+# Credentials & Sensitive Tokens (MUST NEVER BE COMMITTED)
+client_secrets*.json
+token*.json
+*.env
+*.pem
+*.key
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Video, Audio & Temporary Render Outputs
+output/
+output/*
+*.mp4
+*.mp3
+*.ass
+*.srt
+*.log
+
+# Database
+news_tracker.db
+*.sqlite3
+
+# OS Specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor Settings
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
