@@ -13,6 +13,7 @@ SECRETS_FILE = config.BASE_DIR / "client_secrets.json"
 TOKEN_FILE = config.BASE_DIR / "token.json"
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube",
     "https://www.googleapis.com/auth/youtube.readonly"
 ]
 
@@ -122,17 +123,24 @@ def upload_video(metadata: Dict, privacy_status: str = None) -> Optional[str]:
     try:
         from googleapiclient.http import MediaFileUpload
 
+        status_body = {
+            "privacyStatus": target_privacy,
+            "selfDeclaredMadeForKids": False
+        }
+
+        # Support YouTube native scheduled releases
+        if metadata.get("publish_at"):
+            status_body["privacyStatus"] = "private"
+            status_body["publishAt"] = metadata["publish_at"]
+
         body = {
             "snippet": {
-                "title": metadata.get("title", "India Hourly News")[:100],
+                "title": metadata.get("title", "Tech Masterclass")[:100],
                 "description": metadata.get("description", "")[:5000],
                 "tags": metadata.get("tags", []),
-                "categoryId": "25"  # News & Politics category ID on YouTube
+                "categoryId": "28"  # Science & Technology / Coding Education
             },
-            "status": {
-                "privacyStatus": target_privacy,
-                "selfDeclaredMadeForKids": False
-            }
+            "status": status_body
         }
 
         media = MediaFileUpload(video_path, chunksize=1024*1024*4, resumable=True)
@@ -142,7 +150,8 @@ def upload_video(metadata: Dict, privacy_status: str = None) -> Optional[str]:
             media_body=media
         )
 
-        print(f"\n[UPLOADING] Uploading {Path(video_path).name} to YouTube ({target_privacy.upper()})...")
+        display_status = f"SCHEDULED for {metadata.get('publish_at')}" if metadata.get("publish_at") else target_privacy.upper()
+        print(f"\n[UPLOADING] Uploading {Path(video_path).name} to YouTube ({display_status})...")
         response = None
         while response is None:
             status, response = request.next_chunk()
@@ -151,7 +160,28 @@ def upload_video(metadata: Dict, privacy_status: str = None) -> Optional[str]:
 
         video_id = response.get("id")
         video_url = f"https://youtu.be/{video_id}"
-        print(f"  SUCCESS! Video Published: {video_url}")
+        print(f"  SUCCESS! Video Published/Scheduled: {video_url}")
+
+        # Automatically insert into target YouTube playlist if specified
+        playlist_id = metadata.get("playlist_id")
+        if playlist_id:
+            try:
+                service.playlistItems().insert(
+                    part="snippet",
+                    body={
+                        "snippet": {
+                            "playlistId": playlist_id,
+                            "resourceId": {
+                                "kind": "youtube#video",
+                                "videoId": video_id
+                            }
+                        }
+                    }
+                ).execute()
+                print(f"  [PLAYLIST] Added video to playlist: {playlist_id}")
+            except Exception as pl_err:
+                print(f"  [!] Notice: Could not add to playlist {playlist_id}: {pl_err}")
+
         return video_id
     except Exception as e:
         print(f"YouTube Upload Failed: {e}")
