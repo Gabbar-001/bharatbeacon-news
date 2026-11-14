@@ -1,7 +1,6 @@
 import os
 import sys
 import json
-import subprocess
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
@@ -17,17 +16,11 @@ if sys.stdout.encoding != 'utf-8':
         pass
 
 import config
-from content_plan.day1_shorts_data import DAY1_SHORTS
-from src.tech_animator import (
-    render_code_card,
-    render_shorts_frame,
-    COLOR_PYTHON,
-    COLOR_JAVA,
-    COLOR_MONGO,
-    COLOR_SQL
-)
-from src.tts_engine import generate_voiceover_sync
-from src.youtube_publisher import upload_video
+from src.news_fetcher import fetch_top_news, init_db
+from src.learning_memory import init_learning_tables
+from src.video_composer import build_longform_video, build_shorts_video, clean_temp_files
+from src.youtube_publisher import save_metadata, upload_video
+from src.regional_translator import generate_youtube_localizations, generate_regional_audio_tracks
 
 class TeeLogger:
     def __init__(self, log_path: Path, orig_stream):
@@ -66,25 +59,28 @@ class TeeLogger:
         except Exception:
             return self.log_file.fileno()
 
-def execute_hourly_cycle():
+def execute_hourly_cycle(deduplicate: bool = True):
     IST = timezone(timedelta(hours=5, minutes=30))
     start_time = datetime.now(IST)
     timestamp_str = start_time.strftime("%Y%m%d_%H%M")
     hour_display = start_time.strftime("%I:00 %p IST")
     date_display = start_time.strftime("%d %B %Y")
-    hour_ist = start_time.hour
 
     logs_dir = config.OUTPUT_DIR / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
-    log_file = logs_dir / f"tech_broadcast_{timestamp_str}.log"
+    log_file = logs_dir / f"broadcast_{timestamp_str}.log"
     sys.stdout = TeeLogger(log_file, sys.stdout)
     sys.stderr = TeeLogger(log_file, sys.stderr)
 
     print("\n" + "=" * 65)
-    print(f"  [TECH MASTERCLASS ENGINE] 60-DAY BOOTCAMP BROADCAST")
-    print(f"  Time: {hour_display} | {date_display} | Hour IST: {hour_ist}")
+    print(f"  [BHARATBEACON] BHARATBEACON — India's Window to the World")
+    print(f"  Broadcast Time: {hour_display} | {date_display}")
     print(f"  Log File: {log_file}")
     print("=" * 65)
+
+    # 0. Initialize Database Tables
+    init_db()
+    init_learning_tables()
 
     # 1. Load Playlist IDs
     pl_file = Path("playlists.json")
@@ -93,125 +89,89 @@ def execute_hourly_cycle():
         with open(pl_file, "r", encoding="utf-8") as f:
             playlist_map = json.load(f)
 
-    # 2. Pick the Short for the current IST hour
-    selected_short = None
-    for s in DAY1_SHORTS:
-        if s["hour_ist"] == hour_ist:
-            selected_short = s
-            break
-    if not selected_short:
-        selected_short = DAY1_SHORTS[hour_ist % len(DAY1_SHORTS)]
+    shorts_playlist_id = playlist_map.get("news_shorts", {}).get("id")
+    longform_playlist_id = playlist_map.get("news_longform", {}).get("id")
 
-    track = selected_short["track"]
-    pl_key = selected_short["playlist_key"]
-    playlist_id = playlist_map.get(pl_key, {}).get("id")
-
-    print(f"\n[1/3] Selected Short for {hour_display}:")
-    print(f"      Track:    {track.upper()}")
-    print(f"      Title:    {selected_short['title']}")
-    print(f"      Playlist: {playlist_map.get(pl_key, {}).get('title')} ({playlist_id})")
-
-    # 3. Generate Audio & Video
-    temp_dir = config.TEMP_DIR / f"hourly_{hour_ist}"
-    temp_dir.mkdir(parents=True, exist_ok=True)
-
-    accent_map = {
-        "python": COLOR_PYTHON,
-        "java": COLOR_JAVA,
-        "mongodb": COLOR_MONGO,
-        "sql": COLOR_SQL
-    }
-    accent = accent_map.get(track, COLOR_PYTHON)
-
-    print(f"\n[2/3] Generating Voiceover & 9:16 Video Frame...")
-    audio_path = temp_dir / f"short_audio_{hour_ist}.mp3"
-    dur = generate_voiceover_sync(
-        selected_short["speech"],
-        audio_path,
-        is_shorts=True,
-        voice="en-IN-NeerjaExpressiveNeural"
-    )
-    print(f"      Voiceover ready: {dur:.2f}s")
-
-    code_card = render_code_card(
-        selected_short["code"],
-        language=track,
-        width=920,
-        height=380,
-        filename=f"snippet_{track}.py",
-        font_size=24
-    )
-    frame = render_shorts_frame(
-        track_badge=selected_short["badge"],
-        hook_text=selected_short["hook_text"],
-        code_img=code_card,
-        caption_text=selected_short["caption"],
-        riddle_text=selected_short["riddle_text"],
-        accent_color=accent
-    )
-    frame_path = temp_dir / f"short_frame_{hour_ist}.jpg"
-    frame.save(frame_path, quality=95)
-
-    shorts_dir = config.SHORTS_OUTPUT_DIR
-    shorts_dir.mkdir(parents=True, exist_ok=True)
-    out_mp4 = shorts_dir / f"SHORT_DAY01_H{hour_ist:02d}_{track.upper()}.mp4"
-
-    cmd = [
-        "ffmpeg", "-y",
-        "-loop", "1",
-        "-framerate", "30",
-        "-i", str(frame_path),
-        "-i", str(audio_path),
-        "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-pix_fmt", "yuv420p",
-        "-r", "30",
-        "-c:a", "aac",
-        "-ar", "44100",
-        "-ac", "2",
-        "-b:a", "192k",
-        "-t", f"{dur:.3f}",
-        "-movflags", "+faststart",
-        str(out_mp4)
-    ]
-    subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    print(f"      Short Video Encoded: {out_mp4.name} ({dur:.1f}s)")
-
-    # 4. Upload to YouTube as PUBLIC
-    print(f"\n[3/3] Uploading Short to YouTube & Adding to Playlist...")
-    description = f"""{selected_short['title']}
-
-Day 1 of our 60-Day Tech Masterclass Bootcamp.
-Master full-stack and database engineering with daily pro-tips, interview gotchas, and deep lectures!
-
-📚 Playlist: {playlist_map.get(pl_key, {}).get('title')}
-👉 Full Masterclasses drop daily across Python, Java, MongoDB, and SQL.
-Subscribe now to join the 60-day challenge!
-
-#Shorts #Coding #Programming #{track.capitalize()} #SoftwareEngineering #TechBootcamp #FAANG
-"""
-    metadata = {
-        "title": selected_short["title"][:100],
-        "description": description,
-        "video_path": str(out_mp4),
-        "tags": [track, "Coding", "Programming", "LearnToCode", "Shorts", "Tech", "SoftwareEngineering"],
-        "playlist_id": playlist_id,
-        "publish_at": None  # Instant Public on its scheduled hour!
-    }
-
-    video_id = upload_video(metadata, privacy_status="public")
-    elapsed = (datetime.now(IST) - start_time).total_seconds()
-
-    print("\n" + "=" * 65)
-    if video_id:
-        print(f"  HOURLY BROADCAST COMPLETED IN {elapsed:.1f}s!")
-        print(f"  Video ID:    {video_id}")
-        print(f"  YouTube URL: https://youtube.com/shorts/{video_id}")
-        print(f"  Playlist:    {playlist_id}")
+    # 2. Fetch Top News Stories (AI Intelligence Engine or Feeds)
+    if getattr(config, "USE_AI_INTELLIGENCE_ENGINE", False):
+        print(f"\n[1/5] Running AI Pre-Generation Engine (Viral Discovery & Hook Engineering)...")
+        from src.pre_generation_engine import execute_pre_generation_pipeline
+        from src.news_fetcher import ensure_story_image
+        stories = execute_pre_generation_pipeline(
+            target_count=config.STORIES_PER_HOURLY,
+            min_score=config.VIRAL_SCORE_THRESHOLD,
+            is_shorts=True
+        )
+        if not stories:
+            print("[!] AI Engine returned 0 approved topics. Falling back to breaking feeds.")
+            stories = fetch_top_news(limit=config.STORIES_PER_HOURLY, deduplicate=deduplicate)
+        else:
+            for idx, story in enumerate(stories):
+                local_img_path = config.TEMP_DIR / f"story_{idx+1}.jpg"
+                story["local_image"] = ensure_story_image(story, local_img_path)
     else:
-        print(f"  [NOTICE] Short rendered and saved locally, but YouTube upload failed (or daily channel limit reached).")
-        print(f"  Local file: {out_mp4}")
-    print("=" * 65)
+        print(f"\n[1/5] Fetching top {config.STORIES_PER_HOURLY} verified breaking stories across India...")
+        stories = fetch_top_news(limit=config.STORIES_PER_HOURLY, deduplicate=deduplicate)
+
+    if not stories:
+        print("[!] No fresh stories found this cycle. Skipping.")
+        return
+
+    print(f"[OK] Retrieved {len(stories)} stories for broadcast:")
+    for idx, s in enumerate(stories, 1):
+        has_img = "Image" if s.get("local_image") else "Graphic"
+        print(f"   {idx:2d}. [{s.get('category', 'NEWS'):8s}] {s['title'][:55]}... ({has_img})")
+
+    # 3. Build YouTube Shorts (9:16)
+    print("\n[2/5] Generating 9:16 YouTube Shorts video with animated captions...")
+    shorts_meta = build_shorts_video(stories, timestamp_str)
+    shorts_meta["playlist_id"] = shorts_playlist_id
+    shorts_meta["category_id"] = "25"  # News & Politics
+
+    # 4. Build Long-Form Broadcast (16:9)
+    print("\n[3/5] Generating 16:9 Long-Form broadcast video with chapter cards...")
+    longform_meta = build_longform_video(stories, timestamp_str)
+    longform_meta["playlist_id"] = longform_playlist_id
+    longform_meta["category_id"] = "25"  # News & Politics
+
+    # 5. AI Regional Multi-Language Localization (Telugu, Kannada, Hindi)
+    print("\n[4/5] Engineering AI Regional Multi-Language Localizations & Audio Tracks...")
+    # Telugu, Kannada, Hindi Localizations for Shorts
+    shorts_locs = generate_youtube_localizations(shorts_meta["title"], shorts_meta["description"])
+    shorts_meta["localizations"] = shorts_locs
+    print(f"      [OK] Attached Telugu, Kannada & Hindi title localizations for Shorts")
+
+    # Telugu, Kannada, Hindi Localizations for Long-form
+    lf_locs = generate_youtube_localizations(longform_meta["title"], longform_meta["description"])
+    longform_meta["localizations"] = lf_locs
+    print(f"      [OK] Attached Telugu, Kannada & Hindi title localizations for Long-Form")
+
+    # Generate Synchronized Regional Audio Tracks (for YouTube Multi-Track Audio)
+    combined_script = " ".join([s.get("summary", s["title"]) for s in stories[:5]])
+    generate_regional_audio_tracks(combined_script, config.OUTPUT_DIR, timestamp_str)
+
+    # Save metadata files
+    shorts_meta_file = save_metadata(shorts_meta, timestamp_str)
+    longform_meta_file = save_metadata(longform_meta, timestamp_str)
+
+    # 6. Publish to YouTube (INSTANT PUBLIC into Dedicated Playlists)
+    print("\n[5/5] Publishing Videos to YouTube...")
+    clean_temp_files()
+
+    print(f"  Uploading Shorts to Playlist: {playlist_map.get('news_shorts', {}).get('title')} ({shorts_playlist_id})...")
+    shorts_vid = upload_video(shorts_meta, privacy_status="public")
+
+    print(f"  Uploading Long-form to Playlist: {playlist_map.get('news_longform', {}).get('title')} ({longform_playlist_id})...")
+    longform_vid = upload_video(longform_meta, privacy_status="public")
+
+    elapsed = (datetime.now(IST) - start_time).total_seconds()
+    print("\n" + "=" * 65)
+    print(f"  HOURLY NEWS BROADCAST COMPLETED IN {elapsed:.1f}s!")
+    print(f"  Shorts Video:     https://youtube.com/shorts/{shorts_vid}")
+    print(f"  Long-form Video:  https://youtu.be/{longform_vid}")
+    print(f"  Shorts Playlist:  {playlist_map.get('news_shorts', {}).get('url')}")
+    print(f"  Long Playlist:    {playlist_map.get('news_longform', {}).get('url')}")
+    print("=" * 65 + "\n")
 
 if __name__ == "__main__":
-    execute_hourly_cycle()
+    execute_hourly_cycle(deduplicate=True)

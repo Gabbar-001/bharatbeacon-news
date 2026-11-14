@@ -135,17 +135,24 @@ def upload_video(metadata: Dict, privacy_status: str = None) -> Optional[str]:
 
         body = {
             "snippet": {
-                "title": metadata.get("title", "Tech Masterclass")[:100],
+                "title": metadata.get("title", "BharatBeacon Breaking News")[:100],
                 "description": metadata.get("description", "")[:5000],
-                "tags": metadata.get("tags", []),
-                "categoryId": "28"  # Science & Technology / Coding Education
+                "tags": metadata.get("tags", ["India News", "BharatBeacon", "News"]),
+                "categoryId": metadata.get("category_id", "25"),  # 25 = News & Politics
+                "defaultLanguage": "en",
+                "defaultAudioLanguage": "en-IN"
             },
             "status": status_body
         }
 
+        part_str = "snippet,status"
+        if metadata.get("localizations"):
+            body["localizations"] = metadata["localizations"]
+            part_str = "snippet,status,localizations"
+
         media = MediaFileUpload(video_path, chunksize=1024*1024*4, resumable=True)
         request = service.videos().insert(
-            part="snippet,status",
+            part=part_str,
             body=body,
             media_body=media
         )

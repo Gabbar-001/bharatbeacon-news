@@ -54,5 +54,17 @@
     "type": "shorts",
     "track": "sql",
     "url": "https://www.youtube.com/playlist?list=PLFPXUdMgM0HI"
+  },
+  "news_longform": {
+    "id": "PLMxRrDlo3tL0",
+    "title": "BharatBeacon | India Daily In-Depth News Bulletins",
+    "type": "longform",
+    "url": "https://www.youtube.com/playlist?list=PLMxRrDlo3tL0"
+  },
+  "news_shorts": {
+    "id": "PLaP6tYlyl2ZE",
+    "title": "BharatBeacon | Top 10 Breaking News in 60 Seconds #Shorts",
+    "type": "shorts",
+    "url": "https://www.youtube.com/playlist?list=PLaP6tYlyl2ZE"
   }
 }

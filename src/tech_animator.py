@@ -123,7 +123,13 @@ def render_code_card(
                     break
 
             draw.text((curr_x, curr_y), text, font=font_code, fill=color)
-            w = font_code.getlength(text)
+            try:
+                w = font_code.getlength(text)
+            except Exception:
+                try:
+                    w = draw.textlength(text, font=font_code)
+                except Exception:
+                    w = len(text) * 11
             curr_x += int(w)
 
     return card
