@@ -177,6 +177,21 @@ def execute_hourly_cycle(deduplicate: bool = True):
         has_img = "Image" if s.get("local_image") else "Graphic"
         print(f"   {idx:2d}. [{s.get('category', 'NEWS'):8s}] {s['title'][:55]}... ({has_img})")
 
+    # 15-Minute Scheduled Publishing on YouTube
+    now_ist = datetime.now(IST)
+    minute = now_ist.minute
+    remainder = minute % 15
+    mins_to_add = 15 - remainder
+    if mins_to_add < 4:
+        mins_to_add += 15
+    scheduled_dt = (now_ist + timedelta(minutes=mins_to_add)).replace(second=0, microsecond=0)
+    publish_at_iso = scheduled_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    scheduled_display = scheduled_dt.strftime("%I:%M %p IST")
+
+    shorts_meta["publish_at"] = publish_at_iso
+    longform_meta["publish_at"] = publish_at_iso
+    print(f"\n[SCHEDULE] Videos will be SCHEDULED for YouTube release at: {scheduled_display} ({publish_at_iso})")
+
     # 3. Build YouTube Shorts (9:16)
     print("\n[2/5] Generating 9:16 YouTube Shorts video with animated captions...")
     shorts_meta = build_shorts_video(stories, timestamp_str)

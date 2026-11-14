@@ -70,7 +70,7 @@ def render_segment(
         "-i", str(img_path),
         "-i", str(audio_path),
         "-c:v", "libx264",
-        "-preset", "veryfast",
+        "-preset", "ultrafast",
         "-pix_fmt", "yuv420p",
         "-r", "30",
         "-g", "30",

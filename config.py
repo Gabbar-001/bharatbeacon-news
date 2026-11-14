@@ -69,7 +69,8 @@ NEWS_FEEDS = {
 }
 
 # Number of stories to include in the hourly broadcast
-STORIES_PER_HOURLY = 10
+# Stories per Broadcast Cycle (Optimized to 5 stories for 15-minute rapid bulletins)
+STORIES_PER_HOURLY = 5
 
 # YouTube Automation Settings
 YOUTUBE_AUTO_UPLOAD = True
