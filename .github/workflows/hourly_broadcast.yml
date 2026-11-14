@@ -2,9 +2,9 @@ name: BharatBeacon Hourly YouTube Broadcast
 
 on:
   schedule:
-    # Runs every hour at minute 30 UTC (which corresponds to exactly :00 IST)
-    # E.g. 18:30 UTC is 00:00 (12:00 AM) IST
-    - cron: '30 * * * *'
+    # Runs every hour at minute 45 UTC (which corresponds to exactly :15 past the hour IST)
+    # E.g. 03:45 UTC is 09:15 AM IST
+    - cron: '45 * * * *'
   workflow_dispatch: # Allows manual trigger from GitHub Actions tab
 
 jobs:

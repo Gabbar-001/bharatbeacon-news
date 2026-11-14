@@ -59,12 +59,62 @@ class TeeLogger:
         except Exception:
             return self.log_file.fileno()
 
+def sync_pending_backlog_uploads(playlist_map):
+    """
+    Checks for any pending/un-uploaded videos from previous hours in output/metadata
+    and uploads them automatically.
+    """
+    history_file = config.OUTPUT_DIR / "uploaded_history.json"
+    uploaded_paths = set()
+    if history_file.exists():
+        try:
+            with open(history_file, "r", encoding="utf-8") as f:
+                uploaded_paths = set(json.load(f))
+        except Exception:
+            pass
+
+    meta_dir = config.OUTPUT_DIR / "metadata"
+    if not meta_dir.exists():
+        return
+
+    for meta_file in sorted(meta_dir.glob("METADATA_*.json")):
+        try:
+            with open(meta_file, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            vpath = meta.get("video_path")
+            if not vpath or not Path(vpath).exists() or str(vpath) in uploaded_paths:
+                continue
+
+            # Determine playlist
+            fmt = meta.get("format", "shorts")
+            pl_key = "news_longform" if fmt == "longform" else "news_shorts"
+            meta["playlist_id"] = playlist_map.get(pl_key, {}).get("id")
+            meta["category_id"] = "25"
+
+            print(f"\n[BACKLOG SYNC] Auto-uploading pending before-hour video: {Path(vpath).name}...")
+            vid = upload_video(meta, privacy_status="public")
+            if vid:
+                uploaded_paths.add(str(vpath))
+                print(f"  [BACKLOG SYNC OK] Uploaded to YouTube: https://youtu.be/{vid}")
+        except Exception as e:
+            print(f"  [BACKLOG SYNC NOTICE] Could not sync {meta_file.name}: {e}")
+
+    try:
+        with open(history_file, "w", encoding="utf-8") as f:
+            json.dump(list(uploaded_paths), f, indent=2)
+    except Exception:
+        pass
+
 def execute_hourly_cycle(deduplicate: bool = True):
     IST = timezone(timedelta(hours=5, minutes=30))
     start_time = datetime.now(IST)
     timestamp_str = start_time.strftime("%Y%m%d_%H%M")
-    hour_display = start_time.strftime("%I:00 %p IST")
-    date_display = start_time.strftime("%d %B %Y")
+
+    # Broadcast Target: represents the completed 'before hour' news cycle
+    # E.g. when executing at 09:15 AM IST, this covers the 08:00 AM - 09:00 AM hour
+    target_time = start_time - timedelta(hours=1) if start_time.minute >= 10 else start_time
+    hour_display = target_time.strftime("%I:00 %p IST")
+    date_display = target_time.strftime("%d %B %Y")
 
     logs_dir = config.OUTPUT_DIR / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -74,8 +124,9 @@ def execute_hourly_cycle(deduplicate: bool = True):
 
     print("\n" + "=" * 65)
     print(f"  [BHARATBEACON] BHARATBEACON — India's Window to the World")
-    print(f"  Broadcast Time: {hour_display} | {date_display}")
-    print(f"  Log File: {log_file}")
+    print(f"  Broadcast Target: {hour_display} (Before-Hour News Cycle) | {date_display}")
+    print(f"  Execution Time:   {start_time.strftime('%I:%M %p IST')}")
+    print(f"  Log File:         {log_file}")
     print("=" * 65)
 
     # 0. Initialize Database Tables
@@ -91,6 +142,10 @@ def execute_hourly_cycle(deduplicate: bool = True):
 
     shorts_playlist_id = playlist_map.get("news_shorts", {}).get("id")
     longform_playlist_id = playlist_map.get("news_longform", {}).get("id")
+
+    # Auto-upload any pending before-hour videos
+    print("\n[SYNC] Checking for pending before-hour videos to upload...")
+    sync_pending_backlog_uploads(playlist_map)
 
     # 2. Fetch Top News Stories (AI Intelligence Engine or Feeds)
     if getattr(config, "USE_AI_INTELLIGENCE_ENGINE", False):
@@ -163,6 +218,25 @@ def execute_hourly_cycle(deduplicate: bool = True):
 
     print(f"  Uploading Long-form to Playlist: {playlist_map.get('news_longform', {}).get('title')} ({longform_playlist_id})...")
     longform_vid = upload_video(longform_meta, privacy_status="public")
+
+    # Record successfully uploaded videos to history
+    history_file = config.OUTPUT_DIR / "uploaded_history.json"
+    uploaded_paths = set()
+    if history_file.exists():
+        try:
+            with open(history_file, "r", encoding="utf-8") as f:
+                uploaded_paths = set(json.load(f))
+        except Exception:
+            pass
+    if shorts_vid and shorts_meta.get("video_path"):
+        uploaded_paths.add(str(shorts_meta["video_path"]))
+    if longform_vid and longform_meta.get("video_path"):
+        uploaded_paths.add(str(longform_meta["video_path"]))
+    try:
+        with open(history_file, "w", encoding="utf-8") as f:
+            json.dump(list(uploaded_paths), f, indent=2)
+    except Exception:
+        pass
 
     elapsed = (datetime.now(IST) - start_time).total_seconds()
     print("\n" + "=" * 65)

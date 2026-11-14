@@ -3,7 +3,7 @@ import sys
 import json
 import subprocess
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -192,9 +192,11 @@ def build_longform_video(stories: List[Dict], timestamp_str: str) -> Dict:
     concatenate_segments(segment_mp4s, final_mp4)
     print(f"Long-form video rendered: {final_mp4} (Duration: {format_timestamp(current_time)})")
 
-    now_dt = datetime.now()
-    hour_label = now_dt.strftime("%I %p IST")
-    date_label = now_dt.strftime("%d %b %Y")
+    IST = timezone(timedelta(hours=5, minutes=30))
+    now_ist = datetime.now(IST)
+    target_dt = now_ist - timedelta(hours=1) if now_ist.minute >= 10 else now_ist
+    hour_label = target_dt.strftime("%I %p IST")
+    date_label = target_dt.strftime("%d %b %Y")
     
     title = f"{config.CHANNEL_NAME} | Top 10 News {hour_label} | {config.CHANNEL_TAGLINE}"
     
@@ -281,9 +283,11 @@ def build_shorts_video(stories: List[Dict], timestamp_str: str) -> Dict:
     concatenate_segments(segment_mp4s, final_mp4)
     print(f"Shorts video rendered: {final_mp4} (Duration: {current_time:.1f}s)")
 
-    now_dt = datetime.now()
-    hour_label = now_dt.strftime("%I %p IST")
-    date_label = now_dt.strftime("%d %b")
+    IST = timezone(timedelta(hours=5, minutes=30))
+    now_ist = datetime.now(IST)
+    target_dt = now_ist - timedelta(hours=1) if now_ist.minute >= 10 else now_ist
+    hour_label = target_dt.strftime("%I %p IST")
+    date_label = target_dt.strftime("%d %b")
 
     title = f"{config.CHANNEL_NAME} Top 10 in 60s - {hour_label} | {config.CHANNEL_TAGLINE} #Shorts"
     description = (
