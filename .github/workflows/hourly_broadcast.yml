@@ -1,14 +1,16 @@
-name: BharatBeacon 15-Minute YouTube Broadcast
+name: BharatBeacon Hourly YouTube Broadcast
 
 on:
   schedule:
-    # Runs every 15 minutes (:00, :15, :30, :45 of every hour)
-    - cron: '*/15 * * * *'
+    # Triggers at :05 past every hour IST (UTC is IST - 5:30 -> :35 past every hour UTC)
+    # E.g. 03:35 UTC triggers at 09:05 AM IST, compiles the 08:00-09:00 AM news cycle,
+    # and schedules the video on YouTube for release at 09:15 AM IST.
+    - cron: '35 * * * *'
   workflow_dispatch: # Allows manual trigger from GitHub Actions tab
 
 jobs:
   broadcast:
-    name: Generate & Publish 15-Minute News Videos
+    name: Generate & Publish Hourly News Videos
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

@@ -194,15 +194,17 @@ def build_longform_video(stories: List[Dict], timestamp_str: str) -> Dict:
 
     IST = timezone(timedelta(hours=5, minutes=30))
     now_ist = datetime.now(IST)
-    target_dt = now_ist - timedelta(hours=1) if now_ist.minute >= 10 else now_ist
-    hour_label = target_dt.strftime("%I %p IST")
-    date_label = target_dt.strftime("%d %b %Y")
+    before_dt = now_ist - timedelta(hours=1)
+    before_label = before_dt.strftime("%I %p").lstrip("0")
+    curr_label = now_ist.strftime("%I %p IST").lstrip("0")
+    hour_label = f"{before_label} - {curr_label}"
+    date_label = now_ist.strftime("%d %b %Y")
     
-    title = f"{config.CHANNEL_NAME} | Top 10 News {hour_label} | {config.CHANNEL_TAGLINE}"
+    title = f"{config.CHANNEL_NAME} | Top News ({hour_label}) | {config.CHANNEL_TAGLINE}"
     
     desc_lines = [
         f"🔴 {config.CHANNEL_NAME} — {config.CHANNEL_TAGLINE}",
-        f"Top 10 Major News Developments Across India and the World for {hour_label}, {date_label}.",
+        f"Top Major News Developments Across India and the World for {hour_label}, {date_label}.",
         "Fast, factual, and verified hourly bulletins.\n",
         "TIMESTAMPS:"
     ]
@@ -285,14 +287,16 @@ def build_shorts_video(stories: List[Dict], timestamp_str: str) -> Dict:
 
     IST = timezone(timedelta(hours=5, minutes=30))
     now_ist = datetime.now(IST)
-    target_dt = now_ist - timedelta(hours=1) if now_ist.minute >= 10 else now_ist
-    hour_label = target_dt.strftime("%I %p IST")
-    date_label = target_dt.strftime("%d %b")
+    before_dt = now_ist - timedelta(hours=1)
+    before_label = before_dt.strftime("%I %p").lstrip("0")
+    curr_label = now_ist.strftime("%I %p").lstrip("0")
+    hour_label = f"{before_label} - {curr_label}"
+    date_label = now_ist.strftime("%d %b")
 
-    title = f"{config.CHANNEL_NAME} Top 10 in 60s - {hour_label} | {config.CHANNEL_TAGLINE} #Shorts"
+    title = f"{config.CHANNEL_NAME} Top News in 60s ({hour_label}) | {config.CHANNEL_TAGLINE} #Shorts"
     description = (
         f"{config.CHANNEL_NAME} — {config.CHANNEL_TAGLINE}\n"
-        f"Top 10 breaking news headlines for {hour_label} ({date_label}).\n\n"
+        f"Top breaking news headlines for {hour_label} IST ({date_label}).\n\n"
         "#Shorts #BharatBeacon #IndiaNews #BreakingNews #Top10 #DailyNews #ViralNews #India"
     )
 

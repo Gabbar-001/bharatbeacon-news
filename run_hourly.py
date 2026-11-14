@@ -111,10 +111,10 @@ def execute_hourly_cycle(deduplicate: bool = True):
     timestamp_str = start_time.strftime("%Y%m%d_%H%M")
 
     # Broadcast Target: represents the completed 'before hour' news cycle
-    # E.g. when executing at 09:15 AM IST, this covers the 08:00 AM - 09:00 AM hour
-    target_time = start_time - timedelta(hours=1) if start_time.minute >= 10 else start_time
-    hour_display = target_time.strftime("%I:00 %p IST")
-    date_display = target_time.strftime("%d %B %Y")
+    # E.g. when executing at 09:05 AM IST, this covers the 08:00 AM - 09:00 AM hour
+    before_hour = start_time - timedelta(hours=1)
+    hour_display = f"{before_hour.strftime('%I:00 %p')} - {start_time.strftime('%I:00 %p IST')}"
+    date_display = start_time.strftime("%d %B %Y")
 
     logs_dir = config.OUTPUT_DIR / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -177,14 +177,12 @@ def execute_hourly_cycle(deduplicate: bool = True):
         has_img = "Image" if s.get("local_image") else "Graphic"
         print(f"   {idx:2d}. [{s.get('category', 'NEWS'):8s}] {s['title'][:55]}... ({has_img})")
 
-    # 15-Minute Scheduled Publishing on YouTube
+    # Scheduled Publishing: Video releases on YouTube at :15 past the hour
+    # E.g. triggers from GitHub at 09:05 AM IST -> releases on YouTube at 09:15 AM IST
     now_ist = datetime.now(IST)
-    minute = now_ist.minute
-    remainder = minute % 15
-    mins_to_add = 15 - remainder
-    if mins_to_add < 4:
-        mins_to_add += 15
-    scheduled_dt = (now_ist + timedelta(minutes=mins_to_add)).replace(second=0, microsecond=0)
+    scheduled_dt = now_ist.replace(minute=15, second=0, microsecond=0)
+    if (scheduled_dt - now_ist).total_seconds() < 180:  # If less than 3 minutes buffer
+        scheduled_dt += timedelta(hours=1)
     publish_at_iso = scheduled_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     scheduled_display = scheduled_dt.strftime("%I:%M %p IST")
     print(f"\n[SCHEDULE] Videos will be SCHEDULED for YouTube release at: {scheduled_display} ({publish_at_iso})")
