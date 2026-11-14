@@ -179,13 +179,18 @@ def execute_hourly_cycle(deduplicate: bool = True):
 
     # Scheduled Publishing: Video releases on YouTube at :15 past the hour
     # E.g. triggers from GitHub at 09:05 AM IST -> releases on YouTube at 09:15 AM IST
+    # If already past the :15 mark (e.g. runner queue delay), publish as PUBLIC immediately!
     now_ist = datetime.now(IST)
-    scheduled_dt = now_ist.replace(minute=15, second=0, microsecond=0)
-    if (scheduled_dt - now_ist).total_seconds() < 180:  # If less than 3 minutes buffer
-        scheduled_dt += timedelta(hours=1)
-    publish_at_iso = scheduled_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-    scheduled_display = scheduled_dt.strftime("%I:%M %p IST")
-    print(f"\n[SCHEDULE] Videos will be SCHEDULED for YouTube release at: {scheduled_display} ({publish_at_iso})")
+    target_scheduled_dt = now_ist.replace(minute=15, second=0, microsecond=0)
+    buffer_seconds = (target_scheduled_dt - now_ist).total_seconds()
+
+    if buffer_seconds >= 120:
+        publish_at_iso = target_scheduled_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        scheduled_display = target_scheduled_dt.strftime("%I:%M %p IST")
+        print(f"\n[SCHEDULE] Videos will be SCHEDULED for YouTube release at: {scheduled_display} ({publish_at_iso})")
+    else:
+        publish_at_iso = None
+        print(f"\n[SCHEDULE] Current time ({now_ist.strftime('%I:%M %p IST')}) is at/past :15 mark. Publishing as PUBLIC immediately!")
 
     # 3. Build YouTube Shorts (9:16)
     print("\n[2/5] Generating 9:16 YouTube Shorts video with animated captions...")
