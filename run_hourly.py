@@ -187,9 +187,6 @@ def execute_hourly_cycle(deduplicate: bool = True):
     scheduled_dt = (now_ist + timedelta(minutes=mins_to_add)).replace(second=0, microsecond=0)
     publish_at_iso = scheduled_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     scheduled_display = scheduled_dt.strftime("%I:%M %p IST")
-
-    shorts_meta["publish_at"] = publish_at_iso
-    longform_meta["publish_at"] = publish_at_iso
     print(f"\n[SCHEDULE] Videos will be SCHEDULED for YouTube release at: {scheduled_display} ({publish_at_iso})")
 
     # 3. Build YouTube Shorts (9:16)
@@ -197,12 +194,14 @@ def execute_hourly_cycle(deduplicate: bool = True):
     shorts_meta = build_shorts_video(stories, timestamp_str)
     shorts_meta["playlist_id"] = shorts_playlist_id
     shorts_meta["category_id"] = "25"  # News & Politics
+    shorts_meta["publish_at"] = publish_at_iso
 
     # 4. Build Long-Form Broadcast (16:9)
     print("\n[3/5] Generating 16:9 Long-Form broadcast video with chapter cards...")
     longform_meta = build_longform_video(stories, timestamp_str)
     longform_meta["playlist_id"] = longform_playlist_id
     longform_meta["category_id"] = "25"  # News & Politics
+    longform_meta["publish_at"] = publish_at_iso
 
     # 5. AI Regional Multi-Language Localization (Telugu, Kannada, Hindi)
     print("\n[4/5] Engineering AI Regional Multi-Language Localizations & Audio Tracks...")
