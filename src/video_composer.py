@@ -312,13 +312,27 @@ def build_shorts_video(stories: List[Dict], timestamp_str: str) -> Dict:
     return metadata
 
 def clean_temp_files():
-    """Removes intermediate segment clips to keep disk space lean"""
-    for item in config.TEMP_DIR.glob("*.*"):
-        try:
-            if item.suffix in [".mp4", ".mp3", ".srt", ".ass", ".png", ".txt"]:
-                item.unlink()
-        except Exception:
-            pass
+    """Thoroughly cleans temporary files, intermediate audio tracks, and segments to keep disk space lean"""
+    import shutil
+    # 1. Clean TEMP_DIR contents
+    if config.TEMP_DIR.exists():
+        for item in config.TEMP_DIR.iterdir():
+            try:
+                if item.is_file():
+                    item.unlink(missing_ok=True)
+                elif item.is_dir():
+                    shutil.rmtree(item, ignore_errors=True)
+            except Exception:
+                pass
+
+    # 2. Clean temporary regional audio tracks
+    audio_dir = config.OUTPUT_DIR / "audio_tracks"
+    if audio_dir.exists():
+        for af in audio_dir.glob("*.*"):
+            try:
+                af.unlink(missing_ok=True)
+            except Exception:
+                pass
 
 if __name__ == "__main__":
     from src.news_fetcher import fetch_top_news

@@ -96,6 +96,11 @@ def sync_pending_backlog_uploads(playlist_map):
             if vid:
                 uploaded_paths.add(str(vpath))
                 print(f"  [BACKLOG SYNC OK] Uploaded to YouTube: https://youtu.be/{vid}")
+                try:
+                    Path(vpath).unlink(missing_ok=True)
+                    print(f"  [BACKLOG CLEANUP] Removed synced video: {Path(vpath).name}")
+                except Exception:
+                    pass
         except Exception as e:
             print(f"  [BACKLOG SYNC NOTICE] Could not sync {meta_file.name}: {e}")
 
@@ -254,6 +259,24 @@ def execute_hourly_cycle(deduplicate: bool = True):
             json.dump(list(uploaded_paths), f, indent=2)
     except Exception:
         pass
+
+    # 7. Post-Upload Disk Cleanup: Remove uploaded MP4s and temporary files
+    print("\n[CLEANUP] Executing Post-Upload Disk Cleanup...")
+    try:
+        if shorts_vid and shorts_meta.get("video_path"):
+            sp = Path(shorts_meta["video_path"])
+            if sp.exists():
+                sp.unlink(missing_ok=True)
+                print(f"  [DELETED] Uploaded Short MP4: {sp.name}")
+        if longform_vid and longform_meta.get("video_path"):
+            lp = Path(longform_meta["video_path"])
+            if lp.exists():
+                lp.unlink(missing_ok=True)
+                print(f"  [DELETED] Uploaded Longform MP4: {lp.name}")
+        clean_temp_files()
+        print("  [OK] System disk cleanup completed successfully.")
+    except Exception as ce:
+        print(f"  [!] Note on post-upload cleanup: {ce}")
 
     elapsed = (datetime.now(IST) - start_time).total_seconds()
     print("\n" + "=" * 65)
